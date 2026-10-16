@@ -1,0 +1,21 @@
+{
+  "name": "liuylo-skills",
+  "version": "0.1.0",
+  "description": "Personal agent skills, installable with npx",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "skills": "bin/skills.js"
+  },
+  "files": [
+    "bin/",
+    "skills/",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "install-skills": "node bin/skills.js install"
+  }
+}
