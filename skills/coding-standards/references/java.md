@@ -8,10 +8,84 @@
 
 **优先级：公司共享技能库 > 工程既有写法 > 本节建议。** 本节是推荐手段，冲突时以高者为准并说明冲突点。
 
+结构形态参考 Spring Framework 源码（本机克隆：`/Volumes/liuyl/coding/java/opensource/framework/spring/spring-framework`）——**只借形态，不借复杂度**。
+
+### 变化点分派：按选择依据挑形态，用最小可用版本
+
+**参考 Spring 的形态，不照搬它的复杂度。** Spring 那些缓存、谓词兜底、多匹配取最优、运行时注册与注销，是「面向不特定第三方扩展 + 框架生命周期」才付的成本；业务工程没有这个约束，写这些属于凭空复杂度。
+
+**先按需求写最小可用版本，等第二个真实需求出现再优化。** 判据是「现在有没有第二个冲突的需求」，不是「以后可能要用」。
+
+| 选择依据 | 最小实现 | 明确不做（除非需求已经要求） | 形态参考 |
+| --- | --- | --- | --- |
+| 外部稳定编码（供应商码、渠道码、类型码） | 构造注入 `List<Strategy>`，按显式 key 建不可变 `Map`，重复 key 启动期抛错，未命中抛业务 error code | 谓词兜底、多重匹配取最优、查询缓存、运行时注册/注销、懒加载 | `AbstractHandlerMethodMapping` |
+| 能力谓词，条件可能重叠、顺序有意义 | `List<Resolver>` 顺序遍历，`supportsXxx()` 首个命中即返回 | 结果缓存、权重体系、动态排序 | `HandlerMethodArgumentResolverComposite` |
+| 骨架固定、仅某一两步不同 | 把变化的那步作为回调/函数参数传入（`TransactionCallback` 式） | 抽象基类 + 多个钩子方法 + 模板里再套模板 | `TransactionTemplate#execute`、`JdbcTemplate` |
+
+参考路径（本机 Spring 克隆，可核对）：`spring-webmvc/.../AbstractHandlerMethodMapping.java`、`spring-messaging/.../HandlerMethodArgumentResolverComposite.java`、`spring-tx/.../TransactionTemplate.java`。
+
+其余要求：
+
+- **不用裸 `Map<String, X>` 注入**（key 取 bean 名，与业务编码不天然一致，key 错要到运行时缺 bean 才暴露）。要么按显式 key 建索引并做重复检测，要么走谓词链。
+- **分派结构要有失败语义**：未命中抛 typed error code，或明确兜底，不能静默返回 `null`。
+- 新增分派结构在设计说明里点明选了哪种形态、为什么这么小就够用。
+- **接口只有一个实现不必然是过度抽象**：该点已确认会有第二、第三个实现（多供应商、多渠道、多品类这类明确扩展点）时，建立分派结构是设计决策，不是 `P3`。判据是「第二实现是否已确认」——crm-16 的 `DataSourcePackageStrategy`（当前仅 `SouKeBao` 一个实现，供应商扩展点明确）属此类，不要当过度抽象打回。
+- **升级路径写清楚**：如果这次刻意留了简化（没做缓存、没做谓词兜底），在设计说明里写一句「当前为最小实现，触发条件 X 时再补」——留痕，避免后来者以为是遗漏。
+
+### 状态流转：用 State 形态
+
+对象行为随状态转移而变，且**状态数 ≥ 3、转移带业务分支**时，用状态类而不是在业务方法里堆 `switch (status)`。审批流、工单流这类场景的推荐形态：
+
+```java
+public interface State {
+    void init(Context context);
+    void preReview(Context context);   // 预审
+    void approve(Context context);     // 审批
+    void execute(Context context);     // 执行
+}
+```
+
+配各状态实现（初始 / 预审通过 / 预审失败 / 已审批 / 审批驳回 / 执行成功 / 执行失败）+ 一个 `Context` 持有当前状态并转发调用。
+
+边界（简易版即可）：**不引入状态机框架、不做 DSL、不做状态图配置**。状态转移表就是各状态类里的方法实现，谁允许转移到谁写在代码里。状态需要持久化时只存状态枚举值，恢复时按值构造对应状态类。
+
+状态数只有 1–2 个，或转移没有业务分支（纯改字段）时，用一个状态枚举 + 少量 `if` 就够，不要建状态类。
+
+### 其它模式
+
 1. **单例与 IoC**：Spring 环境下用 `@Component` / `@Service` 的默认 singleton 作用域，禁止手写饿汉式/懒汉式单例类。
-2. **建造者**：工程已在用 Lombok 时用 `@Builder` 等注解；**工程未用时不要为单处引入**（是否引入是团队决定，不是顺手）。禁止手写 `static class Builder`，除非有链式强校验逻辑。
-3. **策略去工厂化**：优先用 Spring 注入 `Map<String, X>` 或枚举自带行为，消除多余的 Factory 类。注意 `Map` 注入的 key 取 bean 名，与业务枚举不天然一致——key 写错要到运行时找不到 bean 才暴露；枚举自带行为或显式注册表更可控。新引入的写法在设计说明里点明。
-4. **模板方法与状态**：先评估能否用 Java 8 函数式接口（`Function` / `Consumer` / `Predicate`）传参替代类继承；能用函数参数解决的，不造继承层级。
+2. **建造者**：分场景——**框架/公共库**用静态工厂 + 链式 builder（`BeanDefinitionBuilder.genericBeanDefinition(...)`、`WebClient.builder()` 式）；**业务 DTO** 若工程已用 Lombok 则用 `@Builder`。**不用 Lombok 的工程不要为单处引入**（是否引入是团队决定，不是顺手）。两种场景都不手写 `static class Builder`，除非有链式强校验逻辑。
+3. **枚举承载行为**：状态/类型枚举自带方法（枚举常量实现抽象方法）优于在业务类里写 `switch` 判枚举再分派。本仓库现有 49 个枚举均为纯数据枚举，首次这样用属允许的改进，不是偏离既有风格。
+4. **桥接（Bridge）**：仅适用于**两个维度各自独立变化**的场景（例：消息渠道 × 紧急程度、报表类型 × 导出格式）。业务里出现频率低，两个维度只有一个会变时不要用。
+5. **谁先谁后**：以上都属于「为变化点建结构」。**没有变化点就不建**——单实现、单分支、单次使用的抽象层一律是净负担（见 `../SKILL.md` 的准入矩阵）。
+
+### 不要这样写（反例）
+
+以下写法在学习型示例代码里常见，落到生产就是缺陷。都定义在**改动行**上，按括号内严重度报。
+
+```java
+// 反例 1：自引用谓词——适配器判断「自己是不是自己」，恒真，没有决策价值
+if (adapter.support(adapter)) { return adapter.login(id, adapter); }
+```
+
+谓词必须拿**外部输入**做判断（`supports(targetType)`、`supports(providerCode)`）。`support(this)` 这种没有信息量的判断只是摆设，删掉或改成真正的条件。（`P2`）
+
+```java
+// 反例 2：吞异常 + 打印堆栈 + 静默返回 null
+try { ... } catch (Exception e) { e.printStackTrace(); }
+return null;
+```
+
+分派失败必须有语义：抛业务 error code，或返回带失败原因的结果对象；生产代码禁止 `printStackTrace`（走工程日志器，且要带业务 key）。返回 `null` 让调用方无从判断是「没匹配」还是「出错了」。（`P2`）
+
+```java
+// 反例 3：在分派入口里直接 new 出实现
+return processLogin(openId, new LoginForQQAdapter());
+```
+
+分派器内 `new` 使实现无法注入、无法 mock、新增实现要改入口。按上面表格选形态：注册表用构造注入 `List<Strategy>` 建索引，谓词链注入 `List<Resolver>`。（`P2`）
+
+另外两类顺带记：实现类命名拼错（`AbstraceAdapter`、`AbastractMessage`、`NomalMessage` 这类原书笔误）不照抄（`P3`）；占位方法体 `return null` / `return 空集合` 而不写 TODO 或抛未实现异常，会让人误以为可用（`P3`）。
 
 ## 并发
 
