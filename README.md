@@ -15,7 +15,7 @@ skills/
 | --- | --- |
 | `git-commit` | 分析 git 改动生成提交信息：Conventional Commits、简体中文、聚焦高层功能变化。 |
 | `mr` | 创建 GitLab 合并请求：先检测并验证 `mr` 命令（已有则不改动），缺失才安装，再对当前分支发起 MR。 |
-| `java-standards` | Java 后端口径：设计模式选择、并发与线程池、Java 8 语法（lambda/Stream/Optional），含设计强制点与「新代码强制、存量记账不阻断」判定。 |
+| `coding-standards` | 编码口径规则库，按语言拆 `references/`：Java 已有，Python / TypeScript / Vue 待补。含设计模式、并发、语言惯用法，以及设计强制点与「新代码强制、存量记账不阻断」判定。 |
 
 ## 安装
 
@@ -33,5 +33,15 @@ npx -y github:liuylo/skills uninstall git-commit
 ## 新增技能
 
 1. `mkdir skills/<name>`，写 `skills/<name>/SKILL.md`，`name` 与目录同名
-2. 需要外部脚本就放 `skills/<name>/scripts/`
+2. 需要外部脚本就放 `skills/<name>/scripts/`，长规则放 `skills/<name>/references/`
 3. 提交推送后 `npx -y github:liuylo/skills install <name>`
+
+## 补语言规则
+
+`coding-standards` 按语言拆文件。加一门语言：
+
+1. 写 `skills/coding-standards/references/<language>.md`，末尾带该语言的 grep 自查清单
+2. 在 `SKILL.md` 的「选文件」表里加一行：语言、文件路径、识别依据（构建文件或后缀）
+3. 提交推送后重跑 `npx -y github:liuylo/skills install coding-standards`
+
+没写对应语言文件时，技能会明说缺少该语言规则，不凭印象造规则——所以表里的行必须与文件同时存在。
