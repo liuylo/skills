@@ -30,6 +30,8 @@ npx -y github:liuylo/skills uninstall git-commit
 
 改了仓库里的技能后，重跑一次 `install` 即可同步。
 
+**改了技能内容就把 `package.json` 的 `version` 提一位**（改内容 → minor，修错字 → patch）。拷贝目录里的 `.installed-by-liuylo-skills` 标记会记下安装时的版本，版本不动就分不出哪台机器装的是旧规则。
+
 ## 新增技能
 
 1. `mkdir skills/<name>`，写 `skills/<name>/SKILL.md`，`name` 与目录同名

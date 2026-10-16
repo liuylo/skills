@@ -1,6 +1,6 @@
 {
   "name": "liuylo-skills",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Personal agent skills, installable with npx",
   "license": "MIT",
   "type": "module",
