@@ -91,7 +91,21 @@ return processLogin(openId, new LoginForQQAdapter());
 
 ## 并发
 
-- 线程池一律用工程既有命名池（如 `ThreadPoolUtil` 及其等价物）；**生产代码禁止 `Executors.new*`**，测试代码除外。`P2`
+- **线程池按业务维度建，两级来源，优先级如下**：
+
+  1. **首选 `cn.duyan.thread.DuyanThreadExecutor`**。公共池在 `cn.duyansoft.common16.config.DuyanThreadPoolConfig` 中定义（`commonThreadExecutor` 40/100、`eventThreadExecutor` 20/100、`crmScheduledThreadExecutor`）；模块自有池按同样方式在自己的 `*Config` 里以 `@Bean` 定义并带 `@Qualifier` 注入（例：`data-source-callback-config` 2/4），或作为 `private final` 字段内联创建（例：`package-bill-lock-renew` 1/1）。
+  2. **确需自定义队列或拒绝策略时**，才用 `java.util.concurrent.ThreadPoolExecutor`（参考 `cn.duyansoft.common16.utils.ThreadPoolUtil`）。
+
+  **新建池之前先答三个问题**，答不上来就别建：
+
+  - **能不能复用**：既有 `commonThreadExecutor` / `eventThreadExecutor` / 模块池是否覆盖这个业务的并发特征？能复用就复用。
+  - **工程影响**：这是第几个池？池里 core/max 是多少？公共池已是 40/100 与 20/100 的量级，再加池是线性放大线程总量与上下文切换成本，不是零成本。
+  - **IO 型还是计算型**：IO 型（等下游、等 DB）可以放大 core/max；计算型按 CPU 核数定，超配只会互相抢占。混用同一个池会让计算型任务被 IO 阻塞拖住。
+
+  池名用业务语义（kebab-case），与既有 `duyan-crm16-common` / `crm16-event` / `data-source-callback-config` / `package-bill-lock-renew` 一致，便于线上定位。
+
+- **生产代码禁止 `Executors.new*`**，测试代码除外。`P2`
+- 不要新增 `public static` 可变线程池字段（可被任意代码替换或误用）；池要么是 Spring bean，要么是 `private final` 字段。`P3`（存量：`ThreadPoolUtil` 里已有 public static 池，属欠账，不阻断）
 - `CompletableFuture` 必须显式传 executor，不依赖 `ForkJoinPool.commonPool`；失败用 `exceptionally` / `handle` / `whenComplete` 处理；不留「发出去就不管」且无失败日志的异步任务。`P2`
 - **事务方法内禁止起异步或并行**：事务、`ThreadLocal`、MDC、租户/安全上下文都不会传播到工作线程。`P2`
 - 并发路径用线程安全类型（`ConcurrentHashMap`、`Atomic*`、按线程持有的 formatter）；跨线程共享 `HashMap`、`ArrayList`、`SimpleDateFormat`、非原子计数器 → `P2`
