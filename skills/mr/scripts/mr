@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+set -e
+
+GITLAB_URL="${GITLAB_URL:-https://git.duyansoft.com}"
+PRIVATE_TOKEN="${GITLAB_PRIVATE_TOKEN:?请配置 GITLAB_PRIVATE_TOKEN}"
+PROJECT_ID="${GITLAB_PROJECT_ID:-$(git config --get duyan.gitlabProjectId)}"
+SOURCE_BRANCH="$(git rev-parse --abbrev-ref HEAD)"
+TARGET_BRANCH="${1:-test}"
+TITLE="${2:-Merge ${SOURCE_BRANCH} into ${TARGET_BRANCH}}"
+
+git push -u origin "$SOURCE_BRANCH"
+
+curl --request POST \
+  --header "PRIVATE-TOKEN: ${PRIVATE_TOKEN}" \
+  --data-urlencode "source_branch=${SOURCE_BRANCH}" \
+  --data-urlencode "target_branch=${TARGET_BRANCH}" \
+  --data-urlencode "title=${TITLE}" \
+  "${GITLAB_URL}/api/v3/projects/${PROJECT_ID}/merge_requests"

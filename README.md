@@ -15,6 +15,7 @@ scripts/
 | 技能 | 用途 |
 | --- | --- |
 | `git-commit` | 分析 git 改动生成提交信息：Conventional Commits、简体中文、聚焦高层功能变化。 |
+| `mr` | 创建 GitLab 合并请求：先检测并验证 `mr` 命令（已有则不改动），缺失才安装，再对当前分支发起 MR。 |
 
 ## 安装
 
