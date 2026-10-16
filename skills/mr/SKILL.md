@@ -1,7 +1,7 @@
 ---
 name: mr
 description: >
-  创建 GitLab 合并请求（MR）：先检测 mr 命令，缺失则安装，再对当前分支发起
+  创建 GitLab 合并请求（MR）：缺 mr 命令就安装，已有则直接用，再对当前分支发起
   MR。Use when asked to 提交 MR, 创建合并请求, 发起 MR, 提 MR, 推 test 分支,
   "create a merge request", or /mr.
 ---
@@ -20,25 +20,36 @@ git branch --show-current
 
 不在仓库里就停下，说明需要先进入目标仓库。工作区有未提交改动时先告知用户——`mr` 只推送已提交的内容，未提交的改动不会进 MR。
 
-## Step 2 — 检测并验证 mr
+## Step 2 — 确认 mr 可用
+
+默认只做一次检测，一条 shell 内建，不装、不验证：
+
+```bash
+command -v mr
+```
+
+**有 → 直接进 Step 3。** 不跑验证脚本：每次都做 `bash -n` + grep + sha256 + 依赖探测是四个进程的开销，只为确认一个本该在 PATH 里的命令，不值当。
+
+**缺 → 安装**，然后继续：
 
 ```bash
 bash <skill-dir>/scripts/install-mr.sh
 ```
 
-`<skill-dir>` 是本技能所在目录（如 `~/.claude/skills/mr`、`~/.agents/skills/mr`）。脚本行为分两种情况：
+`<skill-dir>` 是本技能所在目录（如 `~/.claude/skills/mr`、`~/.agents/skills/mr`）。安装行为：macOS / Linux 装到 `/usr/local/bin/mr`；无写权限且是交互终端时用 `sudo`，两者都不行则回退 `~/.local/bin`。Windows（Git Bash / MSYS / Cygwin）装到 `~/.local/bin/mr`，并在同目录生成 `mr.cmd`（`@echo off` + `bash "%~dp0mr" %*`）供 PowerShell / cmd 调用，同时把 PATH 写入 `~/.bashrc`。装完校验 `command -v mr`，目录不在 PATH 就报错并给出临时与永久生效的写法。
 
-**已有 `mr`（PATH 里能找到，或默认安装路径下已存在）→ 只验证，不改动。** 验证是静态的——**绝不用真实执行来验证**，跑一次就真的建出一个 MR 了。检查项：执行位、`bash -n` 语法、脚本内含 `merge_requests` 调用、`git`/`curl` 依赖、token 与项目 ID 是否配置、指纹。语法或内容有问题时脚本以非零退出并说明。
-
-其中一项要看清楚：脚本是否带 `--fail-with-body`。不带时 `curl` 遇到 4xx/5xx 仍返回 0，**MR 被拒也会看起来像成功**。技能汇报成功与否不能只看退出码——同时核验响应体里有没有 `web_url`，没有就按失败处理并说明原因。
-
-**没有 `mr` → 安装。** macOS / Linux 装到 `/usr/local/bin/mr`；无写权限且是交互终端时用 `sudo`，两者都不行则回退 `~/.local/bin`。Windows（Git Bash / MSYS / Cygwin）装到 `~/.local/bin/mr`，并在同目录生成 `mr.cmd`（`@echo off` + `bash "%~dp0mr" %*`）供 PowerShell / cmd 调用，同时把 PATH 写入 `~/.bashrc`。装完校验 `command -v mr`，目录不在 PATH 就报错并给出临时与永久生效的写法。
-
-只验证不安装（已有 `mr` 时等同于默认行为，没有时直接报告未安装）：
+### 只在两种情况跑完整验证
 
 ```bash
 bash <skill-dir>/scripts/install-mr.sh --check
 ```
+
+1. 用户问「`mr` 装了吗 / 能用吗」这类问题时
+2. `mr` 执行失败、需要定位原因时
+
+验证是**静态**的——**绝不为了验证去真实执行**，跑一次就真的建出一个 MR 了。检查项：执行位、`bash -n` 语法、脚本内含 `merge_requests` 调用、`git`/`curl` 依赖、token 与项目 ID 是否配置、指纹。
+
+验证要看清一项：脚本是否带 `--fail-with-body`。不带时 `curl` 遇到 4xx/5xx 仍返回 0，**MR 被拒也会看起来像成功**。这条不影响是否验证的判断，但影响成败判定——见 Step 4。
 
 明确要替换机器上已有版本时（会先备份为 `mr.bak-<时间戳>`）：
 
