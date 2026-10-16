@@ -10,6 +10,8 @@
 
 结构形态参考 Spring Framework 源码（本机克隆：`/Volumes/liuyl/coding/java/opensource/framework/spring/spring-framework`）——**只借形态，不借复杂度**。
 
+本文件引用的教学示例（《Java 8 in Action》等）**只用于佐证现象，不当作生产写法照抄**：教学代码里的默认线程池、`Thread.sleep` 造延迟、`printStackTrace`、`Executors.new*`、`System.out` 输出都属于示例环境，落到工程要按下面的规则替换。
+
 ### 变化点分派：按选择依据挑形态，用最小可用版本
 
 **参考 Spring 的形态，不照搬它的复杂度。** Spring 那些缓存、谓词兜底、多匹配取最优、运行时注册与注销，是「面向不特定第三方扩展 + 框架生命周期」才付的成本；业务工程没有这个约束，写这些属于凭空复杂度。
@@ -94,6 +96,8 @@ return processLogin(openId, new LoginForQQAdapter());
 - **事务方法内禁止起异步或并行**：事务、`ThreadLocal`、MDC、租户/安全上下文都不会传播到工作线程。`P2`
 - 并发路径用线程安全类型（`ConcurrentHashMap`、`Atomic*`、按线程持有的 formatter）；跨线程共享 `HashMap`、`ArrayList`、`SimpleDateFormat`、非原子计数器 → `P2`
 - 跨线程可达的共享可变状态，要么有明确同步，要么不可变，并把决定写下来。`P2`
+- **`CompletableFuture` 传显式 executor 的正例**见《Java 8 in Action》chap11 `BestPriceFinder`：每个 `supplyAsync` 都传了 executor（配 `ThreadFactory`），没用默认池。要改的只有池的来源——书里 `Executors.newFixedThreadPool` 是教学代码，工程从 `duyan-common` 的命名池取。
+- **`SimpleDateFormat` / `DecimalFormat` 不线程安全**：书里 `chap11/Util#format` 用 `synchronized (formatter)` 兜住共享实例，反过来证明这个对象不能裸共享。工程里用按线程持有、`DateTimeFormatter` 或 `duyan-common` 的时间工具，不靠加锁共享 formatter（锁会成为热点）。
 
 ## Java 8 语法
 
@@ -103,6 +107,7 @@ return processLogin(openId, new LoginForQQAdapter());
 - 以下场景**保留 `for` 更清楚**，不要为风格硬转 Stream：顺序副作用、按业务条件提前退出、循环内处理受检异常、依赖下标、循环体写出来会变成多语句 lambda。
 - Stream 管道内不做副作用：写库、发 MQ、调远程、改共享可变状态。`P2`
 - `Collectors.toMap` 未给 merge 函数、而源数据可能重复键 → 抛 `IllegalStateException`。`P2`
+- **Stream 内副作用 + 并行 = 结果错，不只是慢**。《Java 8 in Action》chap7 `ParallelStreams#sideEffectParallelSum` 就是现成的反例：对非线程安全的累加器用 `parallel().forEach(accumulator::add)`，书里的实测结果与串行不符。串行 Stream 内副作用是坏味道，并行 Stream 内副作用是数据错误。
 - **`parallelStream` 禁止**用于：IO / 远程调用 / 数据库访问、事务内、集合小或规模不可控。它跑在共享的 `ForkJoinPool.commonPool`，事务上下文、`ThreadLocal`、MDC 都不会传到工作线程。需要真并行时用工程命名池 + `CompletableFuture`。`P2`
 - `Optional` 只做返回值。不做字段类型、方法参数、集合元素、序列化 DTO 字段。不做未判存在的 `get()`——用 `orElse` / `orElseGet` / `orElseThrow` / `ifPresent` / `map`。`P2`
 - lambda 保持短小单一职责；需要多语句或嵌套控制流的 lambda 体抽成具名方法。`P3`
