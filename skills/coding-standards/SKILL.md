@@ -15,12 +15,16 @@ description: >
 
 先判定**本次改动涉及的语言**，再读对应文件。改动横跨多语言时逐个读。不要用一个仓库里的主导语言去推断某个子模块。
 
-| 语言 | 文件 | 识别依据 | 状态 |
-| --- | --- | --- | --- |
-| Java | `references/java.md` | `pom.xml`、`build.gradle`、`*.java` | 已有 |
-| Python | `references/python.md` | `pyproject.toml`、`requirements*.txt`、`setup.py`、`*.py` | 已有 |
-| TypeScript | `references/typescript.md` | `tsconfig.json`、`package.json`、`*.ts`、`*.tsx` | 待补 |
-| Vue | `references/vue.md` | `*.vue`、`vite.config.*`、`nuxt.config.*` | 待补 |
+| 语言 / 框架 | 文件 | 识别依据 |
+| --- | --- | --- |
+| Java | `references/java.md` | `pom.xml`、`build.gradle`、`*.java` |
+| Python | `references/python.md` | `pyproject.toml`、`requirements*.txt`、`setup.py`、`*.py` |
+| JavaScript | `references/javascript.md` | `*.js`、`*.mjs`、`*.cjs` |
+| TypeScript | `references/typescript.md` | `tsconfig.json`、`*.ts`、`*.tsx`；有 tsconfig 的工程里 `.js` 同样适用 |
+| Vue | `references/vue.md` | `*.vue`、`vite.config.*`、`nuxt.config.*` |
+| React | `references/react.md` | `package.json` 依赖 `react`、`*.jsx`、`*.tsx` |
+
+改动横跨语言与框架时逐个读（例：改一个 Vue 组件且工程是 TS，读 `vue.md` + `typescript.md`）。
 
 尚无对应文件的（该语言还没沉淀规则）：只应用下面的通用部分，并**明说缺少该语言的规则文件**，不要凭印象替它定规则。
 
