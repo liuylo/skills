@@ -15,7 +15,7 @@ skills/
 | --- | --- |
 | `git-commit` | 分析 git 改动生成提交信息：Conventional Commits、简体中文、聚焦高层功能变化。 |
 | `mr` | 创建 GitLab 合并请求：先检测并验证 `mr` 命令（已有则不改动），缺失才安装，再对当前分支发起 MR。 |
-| `coding-standards` | 编码口径规则库，按语言拆 `references/`：Java 已有，Python / TypeScript / Vue 待补。含设计模式阈值触发（分支超过 3 个才评估）、并发、语言惯用法，以及「新代码强制、存量记账不阻断」判定。 |
+| `coding-standards` | 编码口径规则库，按语言拆 `references/`：Java 已有，Python / TypeScript / Vue 待补。含设计模式阈值触发（同维度分支 ≥ 3 才评估）、并发、语言惯用法，以及「新代码强制、存量记账不阻断」判定。优先级低于公司共享技能库与工程 spec。 |
 
 ## 安装
 
