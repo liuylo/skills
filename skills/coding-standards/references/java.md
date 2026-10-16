@@ -96,7 +96,9 @@ return processLogin(openId, new LoginForQQAdapter());
   1. **首选 `cn.duyan.thread.DuyanThreadExecutor`**。公共池在 `cn.duyansoft.common16.config.DuyanThreadPoolConfig` 中定义（`commonThreadExecutor` 40/100、`eventThreadExecutor` 20/100、`crmScheduledThreadExecutor`）；模块自有池按同样方式在自己的 `*Config` 里以 `@Bean` 定义并带 `@Qualifier` 注入（例：`data-source-callback-config` 2/4），或作为 `private final` 字段内联创建（例：`package-bill-lock-renew` 1/1）。
   2. **确需自定义队列或拒绝策略时**，才用 `java.util.concurrent.ThreadPoolExecutor`（参考 `cn.duyansoft.common16.utils.ThreadPoolUtil`）。
 
-  **新建池之前先答三个问题**，答不上来就别建：
+  **新池必须先评估能否并入公共池，评估不通过才允许新建模块池。** 评估结论写进设计说明或 MR 描述——「直接建了新池」而没有评估记录，按 `P2` 报。存量里已有若干内联模块池（`package-bill-lock-renew` 等），属欠账，不阻断。
+
+  评估就答三个问题，答不上来不许建：
 
   - **能不能复用**：既有 `commonThreadExecutor` / `eventThreadExecutor` / 模块池是否覆盖这个业务的并发特征？能复用就复用。
   - **工程影响**：这是第几个池？池里 core/max 是多少？公共池已是 40/100 与 20/100 的量级，再加池是线性放大线程总量与上下文切换成本，不是零成本。
